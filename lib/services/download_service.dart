@@ -164,6 +164,98 @@ class DownloadService {
     }
   }
 
+  Future<String?> downloadVideo(
+      String videoId, String title, Function(int, int) onProgress, {int? itag}) async {
+    try {
+      print("Starting video download for: $title");
+      if (!await _requestPermissions()) {
+        print("Permissions denied");
+        return null;
+      }
+
+      final finalSavePath = await _getVideoDownloadPath(title);
+      if (finalSavePath == null) {
+        print("Could not get save path");
+        return null;
+      }
+
+      var manifest = await _yt.videos.streamsClient.getManifest(videoId);
+      // Stream muxed (video+audio en un solo archivo reproducible), no
+      // requiere unir pistas por separado. Si se pidió una calidad
+      // específica (itag) la buscamos; si no está más disponible, caemos
+      // a la de mayor bitrate.
+      final muxedStreams = manifest.muxed.toList();
+      var streamInfo = itag != null
+          ? muxedStreams.where((s) => s.tag == itag).firstOrNull ?? manifest.muxed.withHighestBitrate()
+          : manifest.muxed.withHighestBitrate();
+
+      var stream = _yt.videos.streamsClient.get(streamInfo);
+      var file = File(finalSavePath);
+      var fileStream = file.openWrite();
+
+      var totalSize = streamInfo.size.totalBytes;
+      int downloaded = 0;
+
+      await for (final data in stream) {
+        downloaded += data.length;
+        onProgress(downloaded, totalSize);
+        fileStream.add(data);
+      }
+      await fileStream.flush();
+      await fileStream.close();
+
+      // Pedirle al sistema que indexe el nuevo archivo. scanMedia() está
+      // pensado para audio (on_audio_query) y con un video puede quedarse
+      // colgado sin resolver nunca — como el archivo ya se guardó bien y la
+      // pestaña Videos escanea la carpeta directamente (no depende de
+      // MediaStore), esto es solo un "nice to have": con timeout para que
+      // nunca trabe la descarga.
+      try {
+        await _audioQuery.scanMedia(finalSavePath).timeout(const Duration(seconds: 5));
+      } catch (e) {
+        print("Error scanning video media (non-blocking): $e");
+      }
+
+      print("Video download completed successfully.");
+      return finalSavePath;
+    } catch (e, stacktrace) {
+      print("Video download error: $e");
+      print(stacktrace);
+      return null;
+    }
+  }
+
+  Future<String?> _getVideoDownloadPath(String title) async {
+    Directory? directory;
+    if (Platform.isAndroid) {
+      // IMPORTANTE: tiene que ser "Movies", no "Music". El almacenamiento con
+      // alcance limitado de Android rechaza (EPERM) crear un archivo de video
+      // dentro de la colección "Music", que solo acepta audio.
+      directory = Directory('/storage/emulated/0/Movies');
+      if (!await directory.exists()) {
+        try {
+          await directory.create(recursive: true);
+        } catch (_) {
+          directory = await getExternalStorageDirectory();
+        }
+      }
+    } else {
+      directory = await getApplicationDocumentsDirectory();
+    }
+
+    if (directory == null) return null;
+
+    // Misma carpeta "AppRec" que ya escanea la pestaña Videos de Biblioteca
+    // (dentro de "Movies", que sí escanea de forma recursiva).
+    final customDir = Directory('${directory.path}/AppRec');
+    if (!await customDir.exists()) {
+      await customDir.create(recursive: true);
+    }
+
+    final cleanTitle = title.replaceAll(RegExp(r'[\\/*?:"<>|]'), "");
+    return '${customDir.path}/$cleanTitle.mp4';
+  }
+
   Future<bool> _requestPermissions() async {
     final status = await Permission.storage.request();
     if (status.isGranted) return true;

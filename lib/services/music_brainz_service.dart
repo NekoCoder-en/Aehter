@@ -54,10 +54,14 @@ class MusicBrainzService {
 
   Future<List<MusicBrainzAlbum>> searchAlbums(String query) async {
     try {
+      // Se busca como frase literal (comillas) para que caracteres especiales
+      // de la sintaxis Lucene de MusicBrainz (:, (), ", etc.) en la búsqueda
+      // del usuario no rompan la consulta.
+      final safeQuery = query.replaceAll('"', '');
       final response = await _dio.get(
         '/release-group',
         queryParameters: {
-          'query': 'release-group:$query OR release:$query',
+          'query': 'release-group:"$safeQuery" OR release:"$safeQuery"',
           'fmt': 'json',
           'limit': 20,
         },

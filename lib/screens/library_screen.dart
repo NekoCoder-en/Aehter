@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/playlist_manager.dart';
 import '../services/audio_manager.dart';
 import '../widgets/full_player.dart';
+import '../widgets/app_toast.dart';
 import '../theme/app_colors.dart';
 import 'video_list_view.dart';
 
@@ -192,12 +194,12 @@ class PlaylistDetailScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: artworkUrl.startsWith('file://')
                       ? Image.file(File(artworkUrl.replaceFirst('file://', '')), width: 50, height: 50, fit: BoxFit.cover)
-                      : Image.network(
-                          artworkUrl,
+                      : CachedNetworkImage(
+                          imageUrl: artworkUrl,
                           width: 50,
                           height: 50,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => QueryArtworkWidget(
+                          errorWidget: (context, url, error) => QueryArtworkWidget(
                             id: song.id,
                             type: ArtworkType.AUDIO,
                             artworkWidth: 50,
@@ -297,12 +299,12 @@ class HiddenSongsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                   child: artworkUrl.startsWith('file://')
                       ? Image.file(File(artworkUrl.replaceFirst('file://', '')), width: 50, height: 50, fit: BoxFit.cover)
-                      : Image.network(
-                          artworkUrl,
+                      : CachedNetworkImage(
+                          imageUrl: artworkUrl,
                           width: 50,
                           height: 50,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => QueryArtworkWidget(
+                          errorWidget: (context, url, error) => QueryArtworkWidget(
                             id: song.id,
                             type: ArtworkType.AUDIO,
                             artworkWidth: 50,
@@ -353,9 +355,7 @@ class HiddenSongsScreen extends StatelessWidget {
                             onTap: () {
                               Navigator.pop(bottomSheetContext);
                               audioManager.unhideSong(song.data);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Canción visible: $songTitle')),
-                              );
+                              AppToast.show(context, 'Canción visible: $songTitle', type: AppToastType.success);
                             },
                           ),
                         ],

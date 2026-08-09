@@ -4,10 +4,12 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/audio_manager.dart';
 import '../services/download_manager.dart';
 import '../widgets/mini_player.dart';
+import '../widgets/app_toast.dart';
 import '../theme/app_colors.dart';
 
 import 'explore_screen.dart';
@@ -20,15 +22,23 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   bool _hasPermission = false;
   int _selectedIndex = 0;
   String _searchQuery = '';
+  late final AnimationController _syncIconController;
 
   @override
   void initState() {
     super.initState();
     _checkPermissions();
+    _syncIconController = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+  }
+
+  @override
+  void dispose() {
+    _syncIconController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkPermissions() async {
@@ -75,6 +85,31 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Inicio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          audioManager.isSyncingCovers
+              ? Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: RotationTransition(
+                    turns: _syncIconController,
+                    child: const Icon(Icons.sync, color: AppColors.primary, size: 22),
+                  ),
+                )
+              : PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  color: const Color(0xFF282828),
+                  onSelected: (value) {
+                    if (value == 'update_covers') {
+                      _updateCovers(context, audioManager);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'update_covers',
+                      child: Text('Actualizar portadas', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+        ],
       ),
       backgroundColor: const Color(0xFF121212),
       body: !_hasPermission
@@ -90,6 +125,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Column(
                       children: [
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          child: audioManager.isSyncingCovers
+                              ? const LinearProgressIndicator(
+                                  minHeight: 3,
+                                  color: AppColors.primary,
+                                  backgroundColor: Colors.transparent,
+                                )
+                              : const SizedBox(width: double.infinity, height: 0),
+                        ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                           child: TextField(
@@ -129,12 +174,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                    borderRadius: BorderRadius.circular(4),
                                    child: artworkUrl.startsWith('file://')
                                     ? Image.file(File(artworkUrl.replaceFirst('file://', '')), width: 50, height: 50, fit: BoxFit.cover)
-                                     : Image.network(
-                                         artworkUrl,
+                                     : CachedNetworkImage(
+                                         imageUrl: artworkUrl,
                                          width: 50,
                                          height: 50,
                                          fit: BoxFit.cover,
-                                         errorBuilder: (context, error, stackTrace) => QueryArtworkWidget(
+                                         errorWidget: (context, url, error) => QueryArtworkWidget(
                                            id: song.id,
                                            type: ArtworkType.AUDIO,
                                            artworkWidth: 50,
@@ -205,9 +250,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                             onTap: () {
                                               Navigator.pop(context);
                                               audioManager.hideSong(song.data);
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Canción ocultada: $title')),
-                                              );
+                                              AppToast.show(context, 'Canción ocultada: $title', type: AppToastType.success);
+                                            },
+                                          ),
+                                          ListTile(
+                                            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                            title: const Text('Eliminar canción', style: TextStyle(color: Colors.redAccent)),
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                              _confirmDeleteSong(context, audioManager, song.data, title);
                                             },
                                           ),
                                         ],
@@ -230,6 +281,47 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                   ],
                 ),
+    );
+  }
+
+  void _updateCovers(BuildContext context, AudioManager audioManager) {
+    _syncIconController.repeat();
+    AppToast.show(context, 'Actualizando portadas...', type: AppToastType.info);
+    audioManager.syncMissingCovers().then((_) async {
+      _syncIconController.stop();
+      if (!mounted) return;
+      // Refresca la pantalla de inicio para reflejar las portadas nuevas.
+      await audioManager.loadSongs();
+      if (!mounted) return;
+      AppToast.show(context, 'Portadas actualizadas', type: AppToastType.success);
+    });
+  }
+
+  void _confirmDeleteSong(BuildContext context, AudioManager audioManager, String path, String title) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF282828),
+        title: const Text('Eliminar canción', style: TextStyle(color: Colors.white)),
+        content: Text(
+          '¿Seguro que quieres eliminar "$title" de tu dispositivo? Esta acción no se puede deshacer.',
+          style: const TextStyle(color: Colors.grey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              audioManager.deleteSong(path);
+              AppToast.show(context, 'Canción eliminada: $title', type: AppToastType.success);
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -270,12 +362,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: task.artworkUrl != null
                                     ? (task.artworkUrl!.startsWith('file://')
                                       ? Image.file(File(task.artworkUrl!.replaceFirst('file://', '')), width: 40, height: 40, fit: BoxFit.cover)
-                                      : Image.network(
-                                          task.artworkUrl!,
+                                      : CachedNetworkImage(
+                                          imageUrl: task.artworkUrl!,
                                           width: 40,
                                           height: 40,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Container(
+                                          errorWidget: (context, url, error) => Container(
                                             width: 40,
                                             height: 40,
                                             color: Colors.grey.shade800,
@@ -314,7 +406,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final audioManager = context.watch<AudioManager>();
-    final downloadManager = context.watch<DownloadManager>();
 
     final List<Widget> pages = [
       _buildHomeContent(audioManager),
@@ -327,34 +418,39 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: pages,
       ),
-      floatingActionButton: _selectedIndex == 1 && downloadManager.queue.isNotEmpty
-          ? FloatingActionButton(
-              backgroundColor: AppColors.primary,
-              onPressed: () => _showDownloads(context),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const FaIcon(FontAwesomeIcons.download, color: Colors.black),
-                  if (downloadManager.hasActiveDownloads)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          "${downloadManager.activeDownloadsCount}",
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
+      // Scoped a un Consumer propio: el progreso de descarga notifica muy seguido
+      // (varias veces por segundo) y no debe reconstruir toda la pantalla de inicio.
+      floatingActionButton: Consumer<DownloadManager>(
+        builder: (context, downloadManager, child) {
+          if (_selectedIndex != 1 || downloadManager.queue.isEmpty) return const SizedBox.shrink();
+          return FloatingActionButton(
+            backgroundColor: AppColors.primary,
+            onPressed: () => _showDownloads(context),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const FaIcon(FontAwesomeIcons.download, color: Colors.black),
+                if (downloadManager.hasActiveDownloads)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        "${downloadManager.activeDownloadsCount}",
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
-                ],
-              ),
-            )
-          : null,
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
 
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF1A1A1A),

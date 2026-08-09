@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:io';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/audio_manager.dart';
 import '../../theme/app_colors.dart';
 
@@ -110,10 +111,10 @@ class PlayerQueueSheet extends StatelessWidget {
                                           File(artworkUrl.replaceFirst('file://', '')),
                                           width: 50, height: 50, fit: BoxFit.cover,
                                         )
-                                      : Image.network(
-                                          artworkUrl,
+                                      : CachedNetworkImage(
+                                          imageUrl: artworkUrl,
                                           width: 50, height: 50, fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => QueryArtworkWidget(
+                                          errorWidget: (context, url, error) => QueryArtworkWidget(
                                             id: qSong.id,
                                             type: ArtworkType.AUDIO,
                                             artworkWidth: 50,

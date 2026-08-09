@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/playlist_manager.dart';
 import '../../theme/app_colors.dart';
+import '../app_toast.dart';
 import 'artist_circles.dart';
 
 class PlayerBottomSheets {
@@ -26,13 +27,16 @@ class PlayerBottomSheets {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 16),
+                const _DragHandle(),
                 // Header with artwork and title
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Row(
                     children: [
-                      SizedBox(width: 50, height: 50, child: artworkWidget),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(width: 56, height: 56, child: artworkWidget),
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -40,10 +44,11 @@ class PlayerBottomSheets {
                           children: [
                             Text(
                               title,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(height: 2),
                             Text(
                               artist,
                               style: const TextStyle(color: Colors.grey, fontSize: 14),
@@ -57,46 +62,45 @@ class PlayerBottomSheets {
                   ),
                 ),
                 ArtistCircles(rawArtists: artist),
-                const Divider(color: Colors.white24, height: 1),
-                ListTile(
-                  leading: FaIcon(
-                    playlistManager.isFavorite(song.data) ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
-                    color: playlistManager.isFavorite(song.data) ? AppColors.accent : Colors.white,
+                const _SheetDivider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _QuickActionButton(
+                        icon: playlistManager.isFavorite(song.data) ? FontAwesomeIcons.solidHeart : FontAwesomeIcons.heart,
+                        iconColor: playlistManager.isFavorite(song.data) ? AppColors.accent : Colors.white,
+                        label: playlistManager.isFavorite(song.data) ? 'Quitar' : 'Favoritos',
+                        onTap: () {
+                          playlistManager.toggleFavorite(song.data);
+                          Navigator.pop(context);
+                        },
+                      ),
+                      _QuickActionButton(
+                        icon: FontAwesomeIcons.plus,
+                        label: 'Playlist',
+                        onTap: () {
+                          Navigator.pop(context);
+                          showPlaylists(context, song, playlistManager);
+                        },
+                      ),
+                      _QuickActionButton(
+                        icon: FontAwesomeIcons.share,
+                        label: 'Compartir',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Share.shareXFiles([XFile(song.data)], text: 'Escucha $title!');
+                        },
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    playlistManager.isFavorite(song.data) ? 'Eliminar de Favoritos' : 'Agregar a Favoritos',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  onTap: () {
-                    playlistManager.toggleFavorite(song.data);
-                    Navigator.pop(context);
-                  },
                 ),
-                ListTile(
-                  leading: const FaIcon(FontAwesomeIcons.plus, color: Colors.white),
-                  title: const Text('Agregar a la playlist', style: TextStyle(color: Colors.white)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    showPlaylists(context, song, playlistManager);
-                  },
-                ),
-                ListTile(
-                  leading: const FaIcon(FontAwesomeIcons.share, color: Colors.white),
-                  title: const Text('Compartir', style: TextStyle(color: Colors.white)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Share.shareXFiles([XFile(song.data)], text: 'Escucha $title!');
-                  },
-                ),
-                ListTile(
-                  leading: const FaIcon(FontAwesomeIcons.circleInfo, color: Colors.white),
-                  title: const Text('Ver detalles', style: TextStyle(color: Colors.white)),
-                  subtitle: Text(
-                    song.data,
-                    style: const TextStyle(color: Colors.grey, fontSize: 10),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                const _SheetDivider(),
+                _ActionTile(
+                  icon: FontAwesomeIcons.circleInfo,
+                  title: 'Ver detalles',
+                  subtitle: song.data,
                   onTap: () => Navigator.pop(context),
                 ),
                 const SizedBox(height: 16),
@@ -122,38 +126,29 @@ class PlayerBottomSheets {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 16),
+              const _DragHandle(),
               const Text(
                 'Agregar a Playlist',
                 style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const Divider(color: Colors.white24, height: 32),
-              ListTile(
-                leading: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4)),
-                  child: const Icon(Icons.add, color: Colors.white),
-                ),
-                title: const Text('Nueva playlist', style: TextStyle(color: Colors.white)),
+              const SizedBox(height: 8),
+              const _SheetDivider(),
+              _ActionTile(
+                icon: FontAwesomeIcons.plus,
+                title: 'Nueva playlist',
                 onTap: () {
                   Navigator.pop(context);
                   showCreatePlaylistDialog(context, song, playlistManager);
                 },
               ),
               ...playlistManager.playlists.keys.where((k) => k != 'Favoritos').map((playlistName) {
-                return ListTile(
-                  leading: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(color: Colors.grey.shade800, borderRadius: BorderRadius.circular(4)),
-                    child: const Icon(Icons.queue_music, color: Colors.white),
-                  ),
-                  title: Text(playlistName, style: const TextStyle(color: Colors.white)),
+                return _ActionTile(
+                  icon: FontAwesomeIcons.listUl,
+                  title: playlistName,
                   onTap: () {
                     playlistManager.addToPlaylist(playlistName, song.data);
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Agregado a $playlistName')));
+                    AppToast.show(context, 'Agregado a $playlistName', type: AppToastType.success);
                   },
                 );
               }),
@@ -201,7 +196,7 @@ class PlayerBottomSheets {
                   playlistManager.createPlaylist(name);
                   playlistManager.addToPlaylist(name, song.data);
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Playlist creada')));
+                  AppToast.show(context, 'Playlist creada', type: AppToastType.success);
                 }
               },
               child: const Text('Crear', style: TextStyle(color: AppColors.primary)),
@@ -209,6 +204,110 @@ class PlayerBottomSheets {
           ],
         );
       },
+    );
+  }
+}
+
+/// Barra de arrastre estándar mostrada arriba de las hojas de este archivo.
+class _DragHandle extends StatelessWidget {
+  const _DragHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 12, bottom: 8),
+      child: SizedBox(
+        width: 40,
+        height: 4,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white24,
+            borderRadius: BorderRadius.all(Radius.circular(2)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetDivider extends StatelessWidget {
+  const _SheetDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.0),
+      child: Divider(color: Colors.white12, height: 1),
+    );
+  }
+}
+
+/// Fila de acción simple: ícono + texto, sin fondos de color, separadas por
+/// líneas finas (`_SheetDivider`). Se usa para acciones de lista variable
+/// (playlists, "Ver detalles") donde no aplica la fila de accesos rápidos.
+class _ActionTile extends StatelessWidget {
+  final FaIconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 2.0),
+      leading: FaIcon(icon, color: Colors.white70, size: 20),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle!,
+              style: const TextStyle(color: Colors.grey, fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+      onTap: onTap,
+    );
+  }
+}
+
+/// Botón de acceso rápido (ícono + etiqueta debajo), sin fondo ni círculo,
+/// usado para las 3 acciones principales de una canción.
+class _QuickActionButton extends StatelessWidget {
+  final FaIconData icon;
+  final String label;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.iconColor = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaIcon(icon, color: iconColor, size: 24),
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ],
+        ),
+      ),
     );
   }
 }

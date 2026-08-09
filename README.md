@@ -4,12 +4,14 @@ Reproductor de música multiplataforma hecho con **Flutter**. Permite buscar can
 
 ## Características
 
-- Búsqueda y exploración de música (YouTube Music).
-- Descarga de audio para escuchar sin conexión.
-- Biblioteca personal y gestor de playlists.
+- Búsqueda y exploración de música y videos (YouTube Music), con vista previa antes de descargar.
+- Búsqueda de álbumes completos.
+- Descarga de audio (MP3) y de video en varias calidades para ver/escuchar sin conexión.
+- Biblioteca personal y gestor de playlists, con opción de ocultar o eliminar canciones.
 - Letras sincronizadas / modo karaoke.
-- Reproductor con mini-player y vista completa, soporte de reproducción en segundo plano.
-- Extracción de metadatos y carátulas (paleta de colores dinámica según el álbum).
+- Reproductor con mini-player (con barra de progreso) y vista completa, soporte de reproducción en segundo plano.
+- Extracción de metadatos y carátulas (paleta de colores dinámica según el álbum), con actualización manual de portadas y datos de artista.
+- Pestaña de Videos locales en la Biblioteca.
 
 ## Tecnologías
 
@@ -18,6 +20,7 @@ Reproductor de música multiplataforma hecho con **Flutter**. Permite buscar can
 - `youtube_explode_dart` y `dart_ytmusic_api` para obtener el contenido
 - `sqflite` para almacenamiento local
 - `provider` para el manejo de estado
+- `cached_network_image` para el caché de portadas/miniaturas
 
 ## Descargar
 

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/audio_manager.dart';
 import '../services/playlist_manager.dart';
@@ -81,12 +82,12 @@ class _FullPlayerState extends State<FullPlayer> {
             height: MediaQuery.of(context).size.width - 48,
             fit: BoxFit.cover,
           )
-        : Image.network(
-        artworkUrl,
+        : CachedNetworkImage(
+        imageUrl: artworkUrl,
         width: MediaQuery.of(context).size.width - 48,
         height: MediaQuery.of(context).size.width - 48,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => QueryArtworkWidget(
+        errorWidget: (context, url, error) => QueryArtworkWidget(
           id: song.id,
           type: ArtworkType.AUDIO,
           artworkWidth: MediaQuery.of(context).size.width - 48,

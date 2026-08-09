@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:on_audio_query/on_audio_query.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:get_thumbnail_video/index.dart';
 import 'package:get_thumbnail_video/video_thumbnail.dart';
@@ -16,10 +15,26 @@ class VideoListView extends StatefulWidget {
 }
 
 class _VideoListViewState extends State<VideoListView> {
-  final OnAudioQuery _audioQuery = OnAudioQuery();
   List<File> _videoFiles = [];
   bool _isLoading = true;
   bool _hasPermission = false;
+
+  // Las miniaturas se generan una sola vez por video y se reutilizan en los
+  // siguientes builds (por ejemplo al volver de reproducir un video), en vez
+  // de regenerarse cada vez que la lista se reconstruye.
+  final Map<String, Future<Uint8List?>> _thumbnailCache = {};
+
+  Future<Uint8List?> _thumbnailFor(String path) {
+    return _thumbnailCache.putIfAbsent(
+      path,
+      () => VideoThumbnail.thumbnailData(
+        video: path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 100,
+        quality: 50,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -130,12 +145,7 @@ class _VideoListViewState extends State<VideoListView> {
         
         return ListTile(
           leading: FutureBuilder<Uint8List?>(
-            future: VideoThumbnail.thumbnailData(
-              video: file.path,
-              imageFormat: ImageFormat.JPEG,
-              maxWidth: 100,
-              quality: 50,
-            ),
+            future: _thumbnailFor(file.path),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
                 return Container(

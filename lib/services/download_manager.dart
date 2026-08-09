@@ -7,6 +7,8 @@ class DownloadTask {
   final String title;
   final String? artworkUrl;
   final String? artistName;
+  final bool isVideo;
+  final int? itag; // calidad específica elegida, solo para isVideo
   double progress;
   bool isDownloading;
   bool isCompleted;
@@ -17,6 +19,8 @@ class DownloadTask {
     required this.title,
     this.artworkUrl,
     this.artistName,
+    this.isVideo = false,
+    this.itag,
     this.progress = 0.0,
     this.isDownloading = false,
     this.isCompleted = false,
@@ -35,16 +39,35 @@ class DownloadManager extends ChangeNotifier {
   bool get hasActiveDownloads => activeDownloadsCount > 0;
 
   void addDownload(String videoId, String title, {String? artworkUrl, String? artistName}) {
-    // Evitar duplicados en cola
-    if (_queue.any((t) => t.id == videoId && !t.hasError && !t.isCompleted)) {
+    // Evitar duplicados en cola (compara también isVideo: el mismo video se
+    // puede pedir como audio y como video sin que se pisen entre sí).
+    if (_queue.any((t) => t.id == videoId && !t.isVideo && !t.hasError && !t.isCompleted)) {
       return;
     }
-    
+
     _queue.add(DownloadTask(
       id: videoId,
       title: title,
       artworkUrl: artworkUrl,
       artistName: artistName,
+    ));
+    notifyListeners();
+
+    _processQueue();
+  }
+
+  void addVideoDownload(String videoId, String title, {String? artworkUrl, int? itag}) {
+    // Evitar duplicados en cola: misma calidad (itag) del mismo video.
+    if (_queue.any((t) => t.id == videoId && t.isVideo && t.itag == itag && !t.hasError && !t.isCompleted)) {
+      return;
+    }
+
+    _queue.add(DownloadTask(
+      id: videoId,
+      title: title,
+      artworkUrl: artworkUrl,
+      isVideo: true,
+      itag: itag,
     ));
     notifyListeners();
 
@@ -68,37 +91,45 @@ class DownloadManager extends ChangeNotifier {
       notifyListeners();
 
       try {
-        final path = await _downloadService.downloadAudio(
-          task.id,
-          task.title,
-          task.artworkUrl,
-          task.artistName,
-          (received, total) {
-            if (total != -1) {
-              task.progress = received / total;
-              notifyListeners();
-            }
-          },
-        );
+        void onProgress(int received, int total) {
+          if (total != -1) {
+            task.progress = received / total;
+            notifyListeners();
+          }
+        }
+
+        final path = task.isVideo
+            ? await _downloadService.downloadVideo(task.id, task.title, onProgress, itag: task.itag)
+            : await _downloadService.downloadAudio(
+                task.id,
+                task.title,
+                task.artworkUrl,
+                task.artistName,
+                onProgress,
+              );
 
         if (path != null) {
           task.isCompleted = true;
           task.progress = 1.0;
-          
-          // Actualizar la lista de música del AudioManager
-          try {
-            await AudioManager().loadSongs();
-            // Wait for Android MediaStore to index the file
-            Future.delayed(const Duration(seconds: 3), () {
-              AudioManager().loadSongs();
-            });
-          } catch (e) {
-            print("Error reloading songs: $e");
+
+          if (!task.isVideo) {
+            // Actualizar la lista de música del AudioManager
+            try {
+              await AudioManager().loadSongs();
+              // Wait for Android MediaStore to index the file
+              Future.delayed(const Duration(seconds: 3), () {
+                AudioManager().loadSongs();
+              });
+            } catch (e) {
+              print("Error reloading songs: $e");
+            }
           }
-          
-          // Auto-remove from queue after a short delay
+
+          // Auto-remove from queue after a short delay. Compara por identidad
+          // (no solo por id): el mismo video puede tener a la vez una tarea
+          // de audio y otra de video, y no deben pisarse entre sí.
           Future.delayed(const Duration(seconds: 3), () {
-            _queue.removeWhere((t) => t.id == task.id && t.isCompleted);
+            _queue.removeWhere((t) => identical(t, task));
             notifyListeners();
           });
         } else {
@@ -118,6 +149,14 @@ class DownloadManager extends ChangeNotifier {
 
   void clearCompleted() {
     _queue.removeWhere((task) => task.isCompleted || task.hasError);
+    notifyListeners();
+  }
+
+  /// Saca de la cola las tareas con error de un video/canción puntual, para
+  /// poder reintentar la descarga desde cero (si no, el dedup de
+  /// addDownload/addVideoDownload seguiría viendo la tarea vieja).
+  void clearError(String id) {
+    _queue.removeWhere((task) => task.id == id && task.hasError);
     notifyListeners();
   }
 }
