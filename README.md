@@ -40,6 +40,33 @@ flutter run            # ejecutar en un dispositivo/emulador conectado
 flutter build apk      # generar la APK de release
 ```
 
+## Historial de versiones
+
+### 1.1.0 (actual)
+- **Explorar**: vista previa (audio) de canciones y videos antes de descargar; descarga de video con selector de calidad, además del audio en MP3; búsqueda de álbumes reactivada; feedback visual de error en descargas con reintento.
+- **Biblioteca / Inicio**: eliminar una canción ahora la borra permanentemente (ya no queda en "ocultas"); "Actualizar portadas" también corrige artista/título vía YouTube Music; fix de miniaturas de video que se recargaban al volver de reproducir un video.
+- **Reproductor**: rediseño de la hoja de opciones (accesos rápidos, fotos de artista más confiables) y barra de progreso en el mini-player.
+- **General**: notificaciones propias (reemplazan los avisos por defecto), caché de imágenes de red y menor consumo al descargar en segundo plano.
+
+### 1.0.0
+- Versión inicial: búsqueda y reproducción de música vía YouTube Music, descarga de audio, biblioteca y playlists, letras sincronizadas / karaoke, mini-player y reproductor completo.
+
+## Reportar un problema o sugerir algo
+
+Los issues de este repositorio se organizan con estas etiquetas:
+
+| Etiqueta | Significado |
+|---|---|
+| `bug` | Algo no está funcionando |
+| `documentation` | Mejoras o agregados a la documentación |
+| `duplicate` | Este issue o pull request ya existe |
+| `enhancement` | Una funcionalidad o pedido nuevo |
+| `good first issue` | Buen punto de entrada para nuevos colaboradores |
+| `help wanted` | Se necesita una mano extra |
+| `invalid` | Esto no parece correcto |
+| `question` | Se necesita más información |
+| `wontfix` | No se va a resolver |
+
 ## Aviso legal
 
 Este proyecto es un ejercicio personal/educativo de desarrollo con Flutter. No está afiliado, respaldado ni patrocinado por YouTube, YouTube Music ni Google.
